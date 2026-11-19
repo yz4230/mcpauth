@@ -129,3 +129,58 @@ func TestParseBaseURL(t *testing.T) {
 		}
 	}
 }
+
+func TestRedirectURIAllowed(t *testing.T) {
+	a, err := New(Config{PublicURL: "https://mcp.example.com", Password: "pw",
+		StateFile: filepath.Join(t.TempDir(), "s.json")})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, u := range []string{redirect, "https://claude.ai/api/mcp/auth_callback",
+		"https://chatgpt.com/connector/oauth/yYVsRYZPDCPc"} {
+		if !a.redirectURIAllowed(u) {
+			t.Errorf("%q: expected allowed", u)
+		}
+	}
+	for _, u := range []string{"https://chatgpt.com/connector/oauth/", "https://chatgpt.com/connector/oauth",
+		"https://chatgpt.com/connector/oauth/a/b", "https://chatgpt.com/connector/oauth/a?x=1",
+		"https://chatgpt.com/connector/oauth/a#f", "https://chatgpt.com/connector/oauth/a/",
+		"https://chatgpt.com.evil.example/connector/oauth/a", "http://chatgpt.com/connector/oauth/a"} {
+		if a.redirectURIAllowed(u) {
+			t.Errorf("%q: expected rejected", u)
+		}
+	}
+
+	// An empty (non-nil) prefix list disables prefix matching
+	a, err = New(Config{PublicURL: "https://mcp.example.com", Password: "pw",
+		StateFile: filepath.Join(t.TempDir(), "s.json"), AllowedRedirectURIPrefixes: []string{}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if a.redirectURIAllowed("https://chatgpt.com/connector/oauth/yYVsRYZPDCPc") {
+		t.Error("prefix matching should be disabled")
+	}
+}
+
+func TestRegisterWithPrefixRedirectURI(t *testing.T) {
+	a, err := New(Config{PublicURL: "https://mcp.example.com", Password: "pw",
+		StateFile: filepath.Join(t.TempDir(), "s.json")})
+	if err != nil {
+		t.Fatal(err)
+	}
+	srv := httptest.NewServer(a.Middleware(http.NotFoundHandler()))
+	defer srv.Close()
+	for body, want := range map[string]int{
+		`{"redirect_uris":["https://chatgpt.com/connector/oauth/yYVsRYZPDCPc"]}`: 201,
+		`{"redirect_uris":["https://chatgpt.com/connector/oauth/a/b"]}`:          400,
+	} {
+		res, err := http.Post(srv.URL+"/register", "application/json", strings.NewReader(body))
+		if err != nil {
+			t.Fatal(err)
+		}
+		res.Body.Close()
+		if res.StatusCode != want {
+			t.Errorf("%s: got %d, want %d", body, res.StatusCode, want)
+		}
+	}
+}

@@ -30,18 +30,25 @@ import (
 )
 
 type Config struct {
-	PublicURL           string        // e.g. https://mcp.example.com (no trailing slash)
-	Password            string        // password for the login page
-	StateFile           string        // where clients and tokens are persisted (default: oauth_state.json)
-	MCPPath             string        // path of the MCP endpoint (default: /mcp)
-	AllowedRedirectURIs []string      // redirect URIs allowed at registration (default: ChatGPT and Claude)
-	AccessTTL           time.Duration // default: 1 hour
-	RefreshTTL          time.Duration // default: 90 days
+	PublicURL           string   // e.g. https://mcp.example.com (no trailing slash)
+	Password            string   // password for the login page
+	StateFile           string   // where clients and tokens are persisted (default: oauth_state.json)
+	MCPPath             string   // path of the MCP endpoint (default: /mcp)
+	AllowedRedirectURIs []string // redirect URIs allowed at registration (default: ChatGPT and Claude)
+	// AllowedRedirectURIPrefixes allows any redirect URI made of a prefix plus one
+	// non-empty segment without '/', '?' or '#' (default: ChatGPT's per-connector URIs).
+	AllowedRedirectURIPrefixes []string
+	AccessTTL                  time.Duration // default: 1 hour
+	RefreshTTL                 time.Duration // default: 90 days
 }
 
 var DefaultRedirectURIs = []string{
 	"https://chatgpt.com/connector_platform_oauth_redirect", // ChatGPT
 	"https://claude.ai/api/mcp/auth_callback",               // Claude
+}
+
+var DefaultRedirectURIPrefixes = []string{
+	"https://chatgpt.com/connector/oauth/", // ChatGPT: https://chatgpt.com/connector/oauth/<id>
 }
 
 const codeTTL = 5 * time.Minute
@@ -120,6 +127,9 @@ func New(cfg Config) (*Auth, error) {
 	}
 	if cfg.AllowedRedirectURIs == nil {
 		cfg.AllowedRedirectURIs = DefaultRedirectURIs
+	}
+	if cfg.AllowedRedirectURIPrefixes == nil {
+		cfg.AllowedRedirectURIPrefixes = DefaultRedirectURIPrefixes
 	}
 	if cfg.AccessTTL == 0 {
 		cfg.AccessTTL = time.Hour
@@ -278,7 +288,7 @@ func (a *Auth) register(w http.ResponseWriter, r *http.Request) { // RFC 7591
 		return
 	}
 	if len(body.RedirectURIs) == 0 || slices.ContainsFunc(body.RedirectURIs, func(u string) bool {
-		return !slices.Contains(a.cfg.AllowedRedirectURIs, u)
+		return !a.redirectURIAllowed(u)
 	}) {
 		log.Printf("[mcpauth] registration rejected: redirect_uris=%v", body.RedirectURIs) // use this to tune the allowlist
 		oauthErr(w, "invalid_redirect_uri", "redirect_uri not allowed")
@@ -293,6 +303,16 @@ func (a *Auth) register(w http.ResponseWriter, r *http.Request) { // RFC 7591
 		"client_id": id, "client_id_issued_at": time.Now().Unix(), "client_name": body.ClientName,
 		"redirect_uris": body.RedirectURIs, "token_endpoint_auth_method": "none",
 		"grant_types": []string{"authorization_code", "refresh_token"}, "response_types": []string{"code"},
+	})
+}
+
+func (a *Auth) redirectURIAllowed(u string) bool {
+	if slices.Contains(a.cfg.AllowedRedirectURIs, u) {
+		return true
+	}
+	return slices.ContainsFunc(a.cfg.AllowedRedirectURIPrefixes, func(p string) bool {
+		rest, ok := strings.CutPrefix(u, p)
+		return ok && rest != "" && !strings.ContainsAny(rest, "/?#")
 	})
 }
 

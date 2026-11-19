@@ -38,6 +38,7 @@ When a client connects, you are shown a login page; entering the password comple
 | `StateFile` | `oauth_state.json` | Where registered clients and tokens are persisted (mode `0600`). |
 | `MCPPath` | `/mcp` | Path of the MCP endpoint, advertised as the protected resource. |
 | `AllowedRedirectURIs` | ChatGPT and Claude | Redirect URIs accepted at client registration (exact match). Setting it replaces the defaults; use `append(mcpauth.DefaultRedirectURIs, ...)` to extend them. |
+| `AllowedRedirectURIPrefixes` | ChatGPT (`https://chatgpt.com/connector/oauth/`) | Prefixes for redirect URIs accepted at client registration: a URI matches when it is a prefix followed by a non-empty segment without `/`, `?` or `#` (e.g. ChatGPT's per-connector `https://chatgpt.com/connector/oauth/<id>`). Setting it replaces the defaults; use `append(mcpauth.DefaultRedirectURIPrefixes, ...)` to extend them, or `[]string{}` to disable prefix matching. |
 | `AccessTTL` | 1 hour | Access token lifetime. |
 | `RefreshTTL` | 90 days | Refresh token lifetime. |
 
