@@ -1,0 +1,7 @@
+[tasks.test]
+description = "Run go vet and the tests"
+run = ["go vet ./...", "go test ./..."]
+
+[tasks.tag]
+description = "Tag the next release: mise run tag <major|minor|patch|M|m|p> [--dry-run]"
+run = "scripts/tag.sh"
