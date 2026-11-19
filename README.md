@@ -1,5 +1,8 @@
 # mcpauth
 
+[![test](https://github.com/yz4230/mcpauth/actions/workflows/test.yaml/badge.svg)](https://github.com/yz4230/mcpauth/actions/workflows/test.yaml)
+[![Go Reference](https://pkg.go.dev/badge/github.com/yz4230/mcpauth.svg)](https://pkg.go.dev/github.com/yz4230/mcpauth)
+
 A minimal OAuth 2.1 authorization server for personal [MCP](https://modelcontextprotocol.io) servers, packaged as `net/http` middleware. Standard library only.
 
 It lets ChatGPT and Claude connect to your own MCP server through their OAuth connector flow (Dynamic Client Registration + PKCE), protected by a single password.
