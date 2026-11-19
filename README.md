@@ -10,7 +10,7 @@ It lets ChatGPT and Claude connect to your own MCP server through their OAuth co
 go get github.com/yz4230/mcpauth
 ```
 
-Requires Go 1.22 or later.
+Requires Go 1.27 or later.
 
 ## Usage
 
